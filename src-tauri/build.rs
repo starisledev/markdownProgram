@@ -24,5 +24,16 @@ fn main() {
     if frontend.is_dir() {
         track(&frontend);
     }
-    tauri_build::build()
+
+    // windres 无法打开含中文的文件路径（图标在项目目录下时会失败）：
+    // 先把图标复制到纯 ASCII 的 OUT_DIR，再把副本路径交给资源编译器
+    let mut attrs = tauri_build::Attributes::new();
+    let icon = Path::new(env!("CARGO_MANIFEST_DIR")).join("icons/icon.ico");
+    if let Some(dst) = std::env::var_os("OUT_DIR").map(|d| std::path::PathBuf::from(d).join("window-icon.ico")) {
+        if fs::copy(&icon, &dst).is_ok() {
+            attrs = attrs
+                .windows_attributes(tauri_build::WindowsAttributes::new().window_icon_path(dst));
+        }
+    }
+    tauri_build::try_build(attrs).expect("tauri build failed")
 }
