@@ -1227,6 +1227,25 @@
     });
   }
 
+  /* 窗口级拖放兜底：Tauri 已关闭拖放拦截（dragDropEnabled=false），
+     拖到编辑器以外的区域时也能打开 Markdown 文件 */
+  function bindWindowDrop() {
+    document.addEventListener('dragover', function (e) { e.preventDefault(); });
+    document.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (editorEl && editorEl.contains(e.target)) return; /* 编辑器内部由编辑器自己处理 */
+      var dt = e.dataTransfer;
+      if (!dt) return;
+      var files = dt.files;
+      if (!files || !files.length) return;
+      var mds = [];
+      for (var i = 0; i < files.length; i++) {
+        if (/\.(md|markdown|txt)$/i.test(files[i].name)) mds.push(files[i]);
+      }
+      if (mds.length) importFiles(mds);
+    });
+  }
+
   /* 初始化 */
   function init() {
     Store.load();
@@ -1281,6 +1300,7 @@
     safeCall('bindKeys', bindKeys);
     safeCall('bindOutlineDrawer', bindOutlineDrawer);
     safeCall('bindFilesDrawer', bindFilesDrawer);
+    safeCall('bindWindowDrop', bindWindowDrop);
     scanMermaid();
 
     // 启动时恢复最近工作区（显示左侧文件树，不自动读文件）

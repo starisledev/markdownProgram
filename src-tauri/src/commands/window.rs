@@ -32,6 +32,9 @@ pub async fn new_window(app: AppHandle, mode: Option<String>) -> Result<String, 
         .min_inner_size(780.0, 540.0)
         .center()
         .theme(theme)
+        // 关闭 Tauri 的文件拖放拦截，让 HTML5 drop 事件到达前端
+        // （否则拖动 md 文件进窗口无任何反应）
+        .disable_drag_drop_handler()
         .build()
         .map(|_| ());
         let _ = tx.send(res.map_err(|e| e.to_string()));

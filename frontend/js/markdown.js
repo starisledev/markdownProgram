@@ -34,7 +34,7 @@
     s = esc(s);
 
     // 转义 \x
-    s = s.replace(/\\([\\`*_{}\[\]()#+\-.!>~|])/g, function (m, c) {
+    s = s.replace(/\\([\\`*_{}\[\]()#+\-.!>~|0-9])/g, function (m, c) {
       return hold(c === '<' ? '&lt;' : c);
     });
 

@@ -13,8 +13,45 @@
       .replace(/\\/g, '\\\\')
       .replace(/([`*_[\]])/g, '\\$1')
       .replace(/~~/g, '\\~\\~')
-      .replace(/==/g, '\\=\\=')
-      .replace(/^(\s*)(#{1,6}\s|>\s|[-*+]\s|\d+[.)]\s|<\/?[a-zA-Z])/gm, '$1\\$2');
+      .replace(/==/g, '\\=\\=');
+  }
+
+  /* 段落/列表项首行防误判：行首的块标记需转义（如 "1. x" → "\1. x"） */
+  function guardBlockStart(s) {
+    return String(s == null ? '' : s).replace(
+      /^([ \t]*)(#{1,6}[ \t]|>[ \t]?|[-*+][ \t]|\d{1,9}[.)][ \t])/,
+      function (m0, ws, mk) { return ws + '\\' + mk; }
+    );
+  }
+
+  /* ---------- 行内元素自身的序列化（保留标记符号） ---------- */
+  function serInlineNode(el) {
+    var tag = el.tagName;
+    if (tag === 'CODE') {
+      var c = txt(el);
+      var tick = /`/.test(c) ? '``' : '`';
+      return tick + (/(^`)|(`$)/.test(c) ? ' ' + c + ' ' : c) + tick;
+    }
+    if (tag === 'STRONG' || tag === 'B') {
+      var inner = serInline(el);
+      return (el.querySelector && el.querySelector('EM, I')) ? '***' + inner + '***' : '**' + inner + '**';
+    }
+    if (tag === 'EM' || tag === 'I') return '*' + serInline(el) + '*';
+    if (tag === 'DEL' || tag === 'S' || tag === 'STRIKE') return '~~' + serInline(el) + '~~';
+    if (tag === 'MARK') return '==' + serInline(el) + '==';
+    if (tag === 'IMG') return '![' + (el.getAttribute('alt') || '') + '](' + (el.getAttribute('src') || '') + ')';
+    if (tag === 'A') {
+      var t = serInline(el), href = el.getAttribute('href') || '';
+      return (t === href) ? '<' + href + '>' : '[' + t + '](' + href + ')';
+    }
+    if (tag === 'BR') return '\n';
+    if (tag === 'SUP') {
+      if (el.classList && el.classList.contains('footnote-ref')) {
+        return '[^' + (el.getAttribute('data-fn') || txt(el)) + ']';
+      }
+      return serInline(el);
+    }
+    return null; /* 非行内格式元素，交回调用方 */
   }
 
   /* ---------- 行内 ---------- */
@@ -135,6 +172,11 @@
     var out = [];
     var pad = new Array(depth + 1).join('  ');
 
+    /* li 的块级子元素（其余视为行内内容，合并为一个段） */
+    function isBlockChild(n) {
+      return n.nodeType === 1 && /^(P|PRE|BLOCKQUOTE|UL|OL|TABLE|HR|DIV)$/.test(n.tagName);
+    }
+
     items.forEach(function (li, idx) {
       var isTask = li.classList && li.classList.contains('task-item');
       var marker = ordered ? (start + idx) + '. ' : '- ';
@@ -149,27 +191,57 @@
 
       var segs = [];
       var nested = [];
-      Array.prototype.forEach.call(container.childNodes, function (n) {
+      var inlineBuf = [];
+
+      /* 把连续的行内节点合并为一个段：`a`、**b** 等标记不会被打散 */
+      function flushInline() {
+        if (!inlineBuf.length) return;
+        var holder = document.createElement('div');
+        for (var b = 0; b < inlineBuf.length; b++) holder.appendChild(inlineBuf[b].cloneNode(true));
+        var s = serInline(holder).replace(/\u00a0/g, ' ').replace(/\n/g, '  \n');
+        inlineBuf = [];
+        if (s.trim()) segs.push(s.trim());
+      }
+
+      Array.prototype.forEach.call(Array.prototype.slice.call(container.childNodes), function (n) {
         if (n.nodeType === 1) {
           if (n.tagName === 'UL' || n.tagName === 'OL') { nested.push(n); return; }
           if (n.classList && n.classList.contains('task-check')) return;
+          if (isBlockChild(n)) { flushInline(); var s = serBlock(n, depth + 1); if (s && s.length) segs.push(s); return; }
         }
-        var s = serBlock(n, depth + 1);
-        if (s && s.length) segs.push(s);
+        inlineBuf.push(n);
       });
+      flushInline();
       if (!segs.length) segs.push('');
 
-      var first = head + segs[0];
+      var first = head + guardBlockStart(segs[0]);
       var block = [first];
       for (var k = 1; k < segs.length; k++) {
         block.push('');
         block.push(contPad + segs[k].split('\n').join('\n' + contPad));
       }
       nested.forEach(function (nl) { block.push(serList(nl, depth + 1)); });
-      out.push(block.join('\n'));
+      /* li 内容被 <p> 包裹 = 宽松列表，item 间需保留空行以传递该语义。
+         例外：仅一个 <p> 且其余块级只有嵌套列表（渲染端对带嵌套的 item
+         保留 <p>，并非宽松语义） */
+      var liLoose = false;
+      var blockKids = [];
+      Array.prototype.forEach.call(container.childNodes, function (n) {
+        if (n.nodeType === 1 && /^(P|PRE|BLOCKQUOTE|TABLE|HR|DIV|UL|OL)$/.test(n.tagName)) blockKids.push(n.tagName);
+      });
+      var pCount = blockKids.filter(function (t) { return t === 'P'; }).length;
+      var otherCount = blockKids.filter(function (t) { return t !== 'P'; }).length;
+      var hasRealBlock = blockKids.some(function (t) { return t !== 'P' && t !== 'UL' && t !== 'OL'; });
+      liLoose = pCount >= 1 && (pCount > 1 || otherCount === 0 || hasRealBlock);
+      out.push({ text: block.join('\n'), loose: liLoose });
     });
 
-    return out.join('\n');
+    var joined = '';
+    out.forEach(function (it, i2) {
+      if (i2 > 0) joined += (it.loose || out[i2 - 1].loose) ? '\n\n' : '\n';
+      joined += it.text;
+    });
+    return joined;
   }
 
   /* ---------- 块 ---------- */
@@ -188,7 +260,7 @@
       }
       case 'P': {
         var pt = serInline(node).replace(/\n/g, '  \n');
-        return pt;
+        return guardBlockStart(pt);
       }
       case 'BLOCKQUOTE': {
         var inner = serBlocks(node, depth);
@@ -220,7 +292,11 @@
       case 'BR': return '';
       case 'FIGURE': return serBlocks(node, depth);
       case 'IMG': return '![' + (node.getAttribute('alt') || '') + '](' + (node.getAttribute('src') || '') + ')';
-      default: return serInline(node);
+      default: {
+        /* 行内格式元素（code/strong/em/...）必须带标记符号序列化 */
+        var selfSer = serInlineNode(node);
+        return selfSer != null ? selfSer : serInline(node);
+      }
     }
   }
 

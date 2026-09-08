@@ -19,7 +19,8 @@
         "center": true,
         "resizable": true,
         "fullscreen": false,
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#ffffff",
+        "dragDropEnabled": false
       }
     ],
     "security": {
