@@ -1,0 +1,226 @@
+/* ============================================================
+   themes.css — 主题变量（浅色 / 深色 / 夜间 / 纸感）
+   ============================================================ */
+
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+             "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Songti SC", "SimSun", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, "Courier New", monospace;
+
+  --radius: 8px;
+  --radius-lg: 12px;
+  --tr: .18s cubic-bezier(.4, 0, .2, 1);
+  --menubar-h: 34px;
+  --toolbar-h: 38px;
+  --status-h: 28px;
+}
+
+/* ---------- 浅色 Light ---------- */
+[data-theme="light"] {
+  --bg:            #ffffff;
+  --bg-app:        #f5f5f5;
+  --bg-card:       #ffffff;
+  --bg-side:       #f2f3f5;
+  --bg-elevated:   #ffffff;
+  --bg-hover:      #e9eaee;
+  --bg-active:     #dfe2e8;
+  --bg-code:       #f5f6f8;
+  --bg-quote:      #f7f8fa;
+  --bg-selected:   rgba(56, 132, 255, .18);
+  --bg-tag:        #eef1f5;
+
+  --text:          #2f3338;
+  --text-strong:   #14171a;
+  --text-muted:    #8a9099;
+  --text-faint:    #b3b8bf;
+
+  --border:        #e3e5e8;
+  --border-strong: #d0d3d8;
+
+  --accent:        #3b82f6;
+  --accent-soft:   rgba(59, 130, 246, .12);
+  --accent-text:   #ffffff;
+
+  --danger:        #e5484d;
+  --warn:          #f5a623;
+  --green:         #30a46c;
+
+  --mark-bg:       #fff3a3;
+  --mark-text:     #5c4a00;
+
+  --shadow-sm:     0 1px 3px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  --shadow-md:     0 6px 20px rgba(16, 24, 40, .10), 0 2px 6px rgba(16, 24, 40, .06);
+  --shadow-lg:     0 18px 50px rgba(16, 24, 40, .16);
+
+  --code-c:        #5a6472;   /* 代码默认色 */
+  --code-key:      #a626a4;
+  --code-str:      #50a14f;
+  --code-num:      #b76b01;
+  --code-com:      #a0a1a7;
+  --code-fn:       #4078f2;
+  --code-tag:      #e45649;
+  --code-attr:     #c18401;
+  --code-var:      #e45649;
+  --code-punct:    #6b717d;
+}
+
+/* ---------- 深色 Dark ---------- */
+[data-theme="dark"] {
+  --bg:            #1e2024;
+  --bg-app:        #16181c;
+  --bg-card:       #202327;
+  --bg-side:       #1a1c20;
+  --bg-elevated:   #24272c;
+  --bg-hover:      #2c3036;
+  --bg-active:     #353a41;
+  --bg-code:       #191b1f;
+  --bg-quote:      #212429;
+  --bg-selected:   rgba(78, 148, 255, .26);
+  --bg-tag:        #2a2e35;
+
+  --text:          #d7dae0;
+  --text-strong:   #f0f2f5;
+  --text-muted:    #838a95;
+  --text-faint:    #5c6370;
+
+  --border:        #2e3238;
+  --border-strong: #3c424a;
+
+  --accent:        #4c9aff;
+  --accent-soft:   rgba(76, 154, 255, .16);
+  --accent-text:   #ffffff;
+
+  --danger:        #f2555a;
+  --warn:          #f7b955;
+  --green:         #4cc38a;
+
+  --mark-bg:       #7a5f00;
+  --mark-text:     #ffe98a;
+
+  --shadow-sm:     0 1px 3px rgba(0, 0, 0, .35);
+  --shadow-md:     0 8px 24px rgba(0, 0, 0, .45);
+  --shadow-lg:     0 20px 56px rgba(0, 0, 0, .6);
+
+  --code-c:        #abb2bf;
+  --code-key:      #c678dd;
+  --code-str:      #98c379;
+  --code-num:      #d19a66;
+  --code-com:      #5c6370;
+  --code-fn:       #61afef;
+  --code-tag:      #e06c75;
+  --code-attr:     #e5c07b;
+  --code-var:      #e06c75;
+  --code-punct:    #7f848e;
+}
+
+/* ---------- 夜间 Night（纯黑高对比） ---------- */
+[data-theme="night"] {
+  --bg:            #101114;
+  --bg-app:        #0b0c0e;
+  --bg-card:       #16171c;
+  --bg-side:       #0d0e11;
+  --bg-elevated:   #17181c;
+  --bg-hover:      #1e2025;
+  --bg-active:     #26292f;
+  --bg-code:       #0d0e11;
+  --bg-quote:      #15161a;
+  --bg-selected:   rgba(120, 170, 255, .28);
+  --bg-tag:        #1c1e23;
+
+  --text:          #c3c8d0;
+  --text-strong:   #eef1f6;
+  --text-muted:    #767d88;
+  --text-faint:    #4e545e;
+
+  --border:        #23252b;
+  --border-strong: #31353d;
+
+  --accent:        #7aa2f7;
+  --accent-soft:   rgba(122, 162, 247, .18);
+  --accent-text:   #0b0c0e;
+
+  --danger:        #f7768e;
+  --warn:          #e0af68;
+  --green:         #9ece6a;
+
+  --mark-bg:       #6b5400;
+  --mark-text:     #ffdf7e;
+
+  --shadow-sm:     0 1px 3px rgba(0, 0, 0, .5);
+  --shadow-md:     0 8px 24px rgba(0, 0, 0, .6);
+  --shadow-lg:     0 20px 56px rgba(0, 0, 0, .75);
+
+  --code-c:        #a9b1d6;
+  --code-key:      #bb9af7;
+  --code-str:      #9ece6a;
+  --code-num:      #ff9e64;
+  --code-com:      #565f89;
+  --code-fn:       #7aa2f7;
+  --code-tag:      #f7768e;
+  --code-attr:     #e0af68;
+  --code-var:      #f7768e;
+  --code-punct:    #89ddff;
+}
+
+/* ---------- 纸感 Paper（暖色衬线） ---------- */
+[data-theme="paper"] {
+  --bg:            #fdf9f1;
+  --bg-app:        #f5efe4;
+  --bg-card:       #fffdf7;
+  --bg-side:       #f2ebdd;
+  --bg-elevated:   #fffdf7;
+  --bg-hover:      #ece4d5;
+  --bg-active:     #e2d9c7;
+  --bg-code:       #f3ecdd;
+  --bg-quote:      #f4edde;
+  --bg-selected:   rgba(200, 130, 40, .20);
+  --bg-tag:        #ece4d5;
+
+  --text:          #4a4237;
+  --text-strong:   #2a251e;
+  --text-muted:    #948676;
+  --text-faint:    #b8aa98;
+
+  --border:        #e5dac6;
+  --border-strong: #d5c8b0;
+
+  --accent:        #b5651d;
+  --accent-soft:   rgba(181, 101, 29, .13);
+  --accent-text:   #fffdf7;
+
+  --danger:        #c0392b;
+  --warn:          #b8860b;
+  --green:         #4f7942;
+
+  --mark-bg:       #ffe9a8;
+  --mark-text:     #6b5300;
+
+  --shadow-sm:     0 1px 3px rgba(90, 70, 40, .08);
+  --shadow-md:     0 8px 24px rgba(90, 70, 40, .14);
+  --shadow-lg:     0 20px 52px rgba(90, 70, 40, .22);
+
+  --code-c:        #5a5348;
+  --code-key:      #9c4274;
+  --code-str:      #4f7942;
+  --code-num:      #a1600a;
+  --code-com:      #a39783;
+  --code-fn:       #2a6099;
+  --code-tag:      #b03a2e;
+  --code-attr:     #8a6d1f;
+  --code-var:      #b03a2e;
+  --code-punct:    #7a7264;
+}
+
+/* 纸感主题正文使用衬线字体 */
+[data-theme="paper"] .md-body,
+[data-theme="paper"] .source {
+  font-family: var(--font-serif);
+}
+
+/* ---------- 通用主题过渡 ---------- */
+body,
+.sidebar, .outline, .titlebar, .toolbar, .statusbar,
+.tree, .editor, .source, .modal, .findbar {
+  transition: background-color var(--tr), border-color var(--tr), color var(--tr);
+}

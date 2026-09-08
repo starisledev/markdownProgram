@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>砚屿 — Markdown 编辑器</title>
+<script>
+/* 首帧主题恢复：在样式应用前同步读取本地设置，避免新窗口/启动时闪白 */
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('markora.workspace.v1') || '{}');
+    var t = (s.settings && s.settings.theme) || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { }
+})();
+</script>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/themes.css">
+</head>
+<body>
+
+<!-- 菜单栏 -->
+<header class="menubar" id="menubar">
+  <div class="menubar-left">
+    <nav class="menu-h">
+    <!-- 文件 -->
+    <div class="mitem" data-menu="file"><span class="m-cap">文件(F)</span>
+      <div class="submenu">
+        <div class="menu-item" data-act="new"><span>新建文档</span><kbd>Ctrl N</kbd></div>
+        <div class="menu-item" data-act="open"><span>打开 Markdown…</span><kbd>Ctrl O</kbd></div>
+        <div class="menu-item" data-act="openFolder"><span>打开文件夹…（工作区）</span></div>
+        <div class="menu-label">
+          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          最近工作区
+        </div>
+        <div id="wsRecentList"></div>
+        <div class="menu-sep"></div>
+        <div class="menu-label" id="recentLabel">
+          <svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v5h5"/></svg>
+          最近文档
+        </div>
+        <div id="recentList"></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="save"><span>导出 Markdown</span><kbd>Ctrl S</kbd></div>
+        <div class="menu-item" data-act="exportHtml"><span>导出 HTML…</span></div>
+        <div class="menu-item" data-act="exportPdf"><span>打印 / 导出 PDF</span><kbd>Ctrl P</kbd></div>
+        <div class="menu-sep desktop-only"></div>
+        <div class="menu-item desktop-only" data-act="quit"><span>退出</span></div>
+      </div>
+    </div>
+    <!-- 编辑 -->
+    <div class="mitem" data-menu="edit"><span class="m-cap">编辑(E)</span>
+      <div class="submenu">
+        <div class="menu-item" data-act="undo"><span>撤销</span><kbd>Ctrl Z</kbd></div>
+        <div class="menu-item" data-act="redo"><span>重做</span><kbd>Ctrl Y</kbd></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="copy"><span>复制</span><kbd>Ctrl C</kbd></div>
+        <div class="menu-item" data-act="cut"><span>剪切</span><kbd>Ctrl X</kbd></div>
+        <div class="menu-item" data-act="paste"><span>粘贴</span><kbd>Ctrl V</kbd></div>
+        <div class="menu-item" data-act="selectAll"><span>全选</span><kbd>Ctrl A</kbd></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="find"><span>查找与替换</span><kbd>Ctrl F</kbd></div>
+        <div class="menu-item" data-act="copyMd"><span>复制 Markdown 源码</span></div>
+        <div class="menu-item" data-act="stats"><span>文档统计</span></div>
+      </div>
+    </div>
+    <!-- 视图（含主题、缩放） -->
+    <div class="mitem" data-menu="view"><span class="m-cap">视图(V)</span>
+      <div class="submenu">
+        <div class="menu-item" data-act="outline"><span>大纲</span><kbd>Ctrl 2</kbd></div>
+        <div class="menu-item" data-act="toggleExplorer"><span>文件树（工作区）</span><kbd>Ctrl 1</kbd></div>
+        <div class="menu-sep"></div>
+        <div class="menu-label">主题</div>
+        <div class="menu-item" data-theme-name="light"><span>浅色</span></div>
+        <div class="menu-item" data-theme-name="dark"><span>深色</span></div>
+        <div class="menu-item" data-theme-name="night"><span>夜间</span></div>
+        <div class="menu-item" data-theme-name="paper"><span>纸感</span></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="focus"><span>专注模式</span><kbd>F8</kbd></div>
+        <div class="menu-item" data-act="typewriter"><span>打字机模式</span><kbd>F9</kbd></div>
+        <div class="menu-item" data-act="source"><span>源码模式</span><kbd>Ctrl /</kbd></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="zoomIn"><span>放大</span><kbd>Ctrl =</kbd></div>
+        <div class="menu-item" data-act="zoomOut"><span>缩小</span><kbd>Ctrl -</kbd></div>
+        <div class="menu-item" data-act="zoomReset"><span>实际大小</span><kbd>Ctrl 0</kbd></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="fullscreen"><span>全屏</span><kbd>F11</kbd></div>
+      </div>
+    </div>
+    <!-- 格式（含段落、插入） -->
+    <div class="mitem" data-menu="format"><span class="m-cap">格式(O)</span>
+      <div class="submenu">
+        <div class="menu-label">标题</div>
+        <div class="menu-item" data-act="h1"><span>一级标题</span></div>
+        <div class="menu-item" data-act="h2"><span>二级标题</span></div>
+        <div class="menu-item" data-act="h3"><span>三级标题</span></div>
+        <div class="menu-item" data-act="h4"><span>四级标题</span></div>
+        <div class="menu-item" data-act="p"><span>正文</span></div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" data-act="bold"><span>加粗</span><kbd>Ctrl B</kbd></div>
+        <div class="menu-item" data-act="italic"><span>斜体</span><kbd>Ctrl I</kbd></div>
+        <div class="menu-item" data-act="strike"><span>删除线</span><kbd>Ctrl D</kbd></div>
+        <div class="menu-item" data-act="mark"><span>高亮</span><kbd>Ctrl U</kbd></div>
+        <div class="menu-item" data-act="code"><span>行内代码</span><kbd>Ctrl E</kbd></div>
+        <div class="menu-item" data-act="link"><span>超链接</span><kbd>Ctrl K</kbd></div>
+        <div class="menu-sep"></div>
+        <div class="menu-label">段落</div>
+        <div class="menu-item" data-act="ul"><span>无序列表</span></div>
+        <div class="menu-item" data-act="ol"><span>有序列表</span></div>
+        <div class="menu-item" data-act="task"><span>任务列表</span></div>
+        <div class="menu-item" data-act="quote"><span>引用</span></div>
+        <div class="menu-sep"></div>
+        <div class="menu-label">插入</div>
+        <div class="menu-item" data-act="image"><span>图片</span></div>
+        <div class="menu-item" data-act="table"><span>表格</span></div>
+        <div class="menu-item" data-act="codeblock"><span>代码块</span></div>
+        <div class="menu-item" data-act="hr"><span>分割线</span></div>
+      </div>
+    </div>
+    <!-- 帮助 -->
+    <div class="mitem" data-menu="help"><span class="m-cap">帮助(H)</span>
+      <div class="submenu">
+        <div class="menu-item" data-act="help"><span>快捷键速查</span></div>
+        <div class="menu-item" data-act="about"><span>关于砚屿</span></div>
+      </div>
+    </div>
+  </nav>
+  </div>
+
+  <div class="menubar-right">
+    <span class="doc-saved" id="docSaved" hidden>已保存</span>
+  </div>
+</header>
+
+<!-- 主编辑区（单栏居中卡片） -->
+<main class="main" id="main">
+  <div class="scroll" id="scroll">
+    <div class="page" id="page">
+      <div class="card" id="card">
+        <div id="editor" class="editor md-body" contenteditable="true" spellcheck="false"></div>
+        <textarea id="source" class="source" spellcheck="false" hidden></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="findbar" id="findbar" hidden>
+    <input type="text" id="findInput" placeholder="查找" autocomplete="off">
+    <span class="find-count" id="findCount">0/0</span>
+    <button class="fb-btn" id="findPrev" title="上一个">↑</button>
+    <button class="fb-btn" id="findNext" title="下一个">↓</button>
+    <input type="text" id="replaceInput" placeholder="替换" autocomplete="off">
+    <button class="fb-btn" id="replaceOne">替换</button>
+    <button class="fb-btn" id="replaceAll">全部</button>
+    <button class="fb-btn icon" id="findClose" title="关闭 Esc">✕</button>
+  </div>
+
+  <!-- 右侧大纲抽屉 -->
+  <aside class="outline-drawer" id="outlineDrawer" hidden>
+    <div class="od-head">
+      <span>大纲</span>
+      <button class="od-close" id="outlineDrawerClose" title="关闭 (Esc)">×</button>
+    </div>
+    <ol class="od-list" id="outlineDrawerList"></ol>
+  </aside>
+
+  <!-- 左侧文件树抽屉（工作区资源管理器） -->
+  <aside class="files-drawer" id="filesDrawer" hidden>
+    <div class="fd-head">
+      <span class="fd-title" id="fdTitle">工作区</span>
+      <button class="od-close" id="fdRefresh" title="刷新">⟳</button>
+      <button class="od-close" id="filesDrawerClose" title="关闭 (Esc)">×</button>
+    </div>
+    <div class="fd-scroll"><ul class="fd-tree" id="fdTree"></ul></div>
+  </aside>
+</main>
+
+<!-- 底部状态栏：右侧字数统计 -->
+<footer class="statusbar" id="statusbar">
+  <span class="st-spacer"></span>
+  <span class="st-item" id="stWords">0 词</span>
+</footer>
+
+<div class="toast" id="toast" hidden></div>
+<input type="file" id="fileInput" accept=".md,.markdown,.txt,image/*" multiple hidden>
+
+<!-- 弹窗 -->
+<div class="modal-mask" id="modalMask" hidden>
+  <div class="modal" id="modal">
+    <div class="modal-head" id="modalTitle">标题</div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/highlight.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/to-markdown.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/store.js"></script>
+<script src="js/tauri-bridge.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

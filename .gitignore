@@ -1,0 +1,22 @@
+# 编译产物
+/src-tauri/target/
+*.exe
+
+# 日志与临时文件
+*.log
+temp/
+
+# 本地密钥与凭据（严禁提交）
+yes
+yes.pub
+*.pem
+*.key
+
+# 机器本地构建配置（含个人路径，禁止提交）
+/src-tauri/.cargo/
+
+# Release 发布资产（仅在 GitHub Release 上传，不入库）
+/release/
+
+# Tauri 自动生成文件
+/src-tauri/gen/schemas/
