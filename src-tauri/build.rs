@@ -1,4 +1,5 @@
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::path::Path;
 
 /// 递归声明前端目录下所有文件为构建依赖：
@@ -54,11 +55,45 @@ fn copy_webview2_loader() {
     }
 }
 
+/// 计算前端目录内容的指纹并写入 OUT_DIR/frontend_stamp.rs：
+/// lib.rs 通过 include! 依赖该文件，前端内容一有变化即触发重编，
+/// 确保 `generate_context!` 重新嵌入最新前端（rerun-if-changed 在增量构建下偶有遗漏）。
+fn frontend_stamp(frontend: &Path) {
+    let Some(out_dir) = std::env::var_os("OUT_DIR").map(std::path::PathBuf::from) else {
+        return;
+    };
+    fn walk(dir: &Path, hasher: &mut std::collections::hash_map::DefaultHasher) {
+        if let Ok(rd) = fs::read_dir(dir) {
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(&p, hasher);
+                } else if let Ok(bytes) = fs::read(&p) {
+                    p.display().to_string().hash(hasher);
+                    hasher.write(&bytes);
+                }
+            }
+        }
+    }
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    walk(frontend, &mut hasher);
+    let stamp = format!(
+        "#[allow(dead_code)]\npub const FRONTEND_STAMP: u64 = {};\n",
+        hasher.finish()
+    );
+    let dst = out_dir.join("frontend_stamp.rs");
+    // 内容相同则不重写，避免无谓的 mtime 变化触发重编
+    if fs::read(&dst).map(|b| b != stamp.as_bytes()).unwrap_or(true) {
+        let _ = fs::write(&dst, stamp);
+    }
+}
+
 fn main() {
     copy_webview2_loader();
     let frontend = Path::new(env!("CARGO_MANIFEST_DIR")).join("../frontend");
     if frontend.is_dir() {
         track(&frontend);
+        frontend_stamp(&frontend);
     }
 
     // windres 无法打开含中文的文件路径（图标在项目目录下时会失败）：

@@ -46,6 +46,40 @@
     return topBlock(node);
   }
 
+  /** 当前选区是否位于编辑器内部（防止点击文件树/大纲后，格式命令污染其他面板） */
+  function selInEditor() {
+    var s = sel();
+    if (!s.rangeCount) return false;
+    return editor.contains(s.getRangeAt(0).commonAncestorContainer);
+  }
+
+  /** 记录编辑器内最后一次选区：弹窗/文件树夺焦后，格式与插入命令仍可作用于原文档。
+   *  注意：editor 在 init 时才赋值，监听必须在 init 中注册（见 bindSelectionTracker）。 */
+  var lastRange = null;
+
+  /** 确保存在编辑器内选区：优先用当前选区，否则恢复最近一次编辑器选区 */
+  function ensureEditorSel() {
+    if (selInEditor()) return true;
+    if (lastRange) {
+      var s = sel();
+      s.removeAllRanges();
+      s.addRange(lastRange.cloneRange());
+      return true;
+    }
+    return false;
+  }
+
+  /** 选区跟踪：editor 就绪后注册（顶层注册会因 editor 尚为 null 而崩溃） */
+  function bindSelectionTracker() {
+    doc().addEventListener('selectionchange', function () {
+      var s = sel();
+      if (!s.rangeCount) return;
+      if (editor.contains(s.getRangeAt(0).commonAncestorContainer)) {
+        lastRange = s.getRangeAt(0).cloneRange();
+      }
+    });
+  }
+
   function walkerFilter(node) {
     var p = node.parentNode;
     if (p && p.closest) {
@@ -346,6 +380,7 @@
 
   /* 选区包裹 */
   function wrapSelection(tag) {
+    if (!ensureEditorSel()) return;
     var s = sel();
     if (!s.rangeCount) return;
     var r = s.getRangeAt(0);
@@ -466,6 +501,7 @@
   }
 
   function setBlockType(type) {
+    if (!ensureEditorSel()) return;
     var s = sel();
     if (!s.rangeCount) return;
     suspend = true;
@@ -567,6 +603,7 @@
   }
 
   function insertHr() {
+    if (!ensureEditorSel()) return;
     var block = topBlock();
     var hr = doc().createElement('hr');
     var p = emptyP();
@@ -577,6 +614,7 @@
   }
 
   function insertCodeBlock(lang) {
+    if (!ensureEditorSel()) return;
     var block = topBlock();
     var pre = makeCodeBlock(lang || '', '');
     var p = emptyP();
@@ -591,6 +629,7 @@
   }
 
   function insertTable(rows, cols) {
+    if (!ensureEditorSel()) return;
     rows = rows || 3; cols = cols || 3;
     var wrap = doc().createElement('div');
     wrap.className = 'table-wrap';
@@ -627,6 +666,7 @@
   }
 
   function insertLink(url, text) {
+    if (!ensureEditorSel()) return;
     var s = sel();
     if (!s.rangeCount) return;
     var r = s.getRangeAt(0);
@@ -646,6 +686,7 @@
   }
 
   function insertImage(src, alt) {
+    if (!ensureEditorSel()) return;
     var img = doc().createElement('img');
     img.setAttribute('src', src);
     img.setAttribute('alt', alt || '');
@@ -1239,6 +1280,7 @@
       editor.setAttribute('contenteditable', 'true');
       editor.setAttribute('spellcheck', 'false');
       bind();
+      bindSelectionTracker();
       ensureStructure();
       return this;
     },
@@ -1256,6 +1298,8 @@
     focus: function () { editor.focus(); ensureStructure(); },
     setBlockType: setBlockType,
     wrapSelection: wrapSelection,
+    /** 恢复编辑器内选区（供剪贴板等异步操作使用）；返回是否成功 */
+    ensureSelection: ensureEditorSel,
     insertHr: insertHr,
     insertCodeBlock: insertCodeBlock,
     insertTable: insertTable,

@@ -142,6 +142,12 @@
     }
   }
 
+  /** 清洗历史版本写坏的重复转义：旧序列化 bug 曾把列表编号写成 \\1.（多层反斜杠），
+   *  打开时自动还原为 1.，保存后文件即被修复。单层 \1. 属正常转义，不动。 */
+  function cleanLegacyEscapes(text) {
+    return String(text || '').replace(/\\{2,}(\d{1,9}[.)])/g, '$1');
+  }
+
   function openDoc(id) {
     saveCurrent();
     flushFsDoc(currentId);              // 切走前把上一个工作区文件写回磁盘
@@ -151,8 +157,8 @@
     currentFsPath = f.fsPath || null;
     Store.setSetting('openId', id);
     syncWindowTitle(f.name + ' — 砚屿');
-    if (sourceMode) sourceEl.value = f.content || '';
-    else Editor.setMarkdown(f.content || '');
+    if (sourceMode) sourceEl.value = cleanLegacyEscapes(f.content || '');
+    else Editor.setMarkdown(cleanLegacyEscapes(f.content || ''));
     clearFind();
     collectHeadings();
     renderRecent();
@@ -266,9 +272,31 @@
     if (list) list.addEventListener('click', function (e) {
       var it = e.target.closest('li[data-id]');
       if (!it) return;
+      collectHeadings(); // 内容可能已重渲染，先同步 id
       var h = document.getElementById(it.getAttribute('data-id'));
-      if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!h) {
+        // id 失效时按层级+文本回退定位
+        var lv = it.getAttribute('data-lv');
+        var text = it.getAttribute('title') || it.textContent;
+        var cands = $$('h' + lv, editorEl).filter(function (x) { return (x.getAttribute('title') || x.textContent) === text || x.textContent === text; });
+        h = cands[0] || null;
+      }
+      if (!h) return;
+      // 先把光标移到标题处再 focus，最后滚动 —— 顺序反了 focus 会把视口拉回光标原位置
+      try {
+        var r = document.createRange();
+        r.setStart(h, 0); r.collapse(true);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      } catch (err) { }
       editorEl.focus();
+      var sc = scrollEl;
+      if (sc) {
+        var scRect = sc.getBoundingClientRect();
+        var hRect = h.getBoundingClientRect();
+        sc.scrollTop += hRect.top - scRect.top - 8;
+      } else {
+        h.scrollIntoView({ block: 'start' });
+      }
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && d && d.classList.contains('open')) toggleOutlineDrawer();
@@ -301,75 +329,6 @@
     var cn = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
     var en = (text.match(/[A-Za-z]+/g) || []).length;
     $('stWords').textContent = (cn + en) + ' 词';
-  }
-
-  function topBlockFrom(node) {
-    var n = node.nodeType === 1 ? node : node.parentNode;
-    if (n === editorEl) {
-      var s = window.getSelection();
-      var off = s.rangeCount ? s.getRangeAt(0).startOffset : 0;
-      return editorEl.children[Math.min(off, editorEl.children.length - 1)] || null;
-    }
-    while (n && n.parentNode !== editorEl) n = n.parentNode;
-    return (n && n.parentNode === editorEl) ? n : null;
-  }
-
-  /* 模式 */
-  function setSourceMode(on) {
-    if (on === sourceMode) return;
-    if (on) {
-      sourceEl.value = Editor.getMarkdown();
-      editorEl.hidden = true;
-      sourceEl.hidden = false;
-      sourceMode = true;
-      sourceEl.focus();
-    } else {
-      Editor.setMarkdown(sourceEl.value);
-      editorEl.hidden = false;
-      sourceEl.hidden = true;
-      sourceMode = false;
-      collectHeadings();
-      editorEl.focus();
-    }
-    saveCurrent();
-    updateStats();
-  }
-
-  function setFocusMode(on) {
-    document.body.classList.toggle('focus', on);
-    if (!on) $$('.focus-line', editorEl).forEach(function (x) { x.classList.remove('focus-line'); });
-    Store.setSetting('focus', on);
-    updateFocusLine();
-  }
-  function setTypewriter(on) {
-    document.body.classList.toggle('typewriter', on);
-    Store.setSetting('typewriter', on);
-    typewriterScroll();
-  }
-  function setSidebarAlwaysHidden() { } // no-op（单栏布局无侧栏）
-  function toggleToolbar() { }
-
-  function updateFocusLine() {
-    if (!document.body.classList.contains('focus')) return;
-    $$('.focus-line', editorEl).forEach(function (x) { x.classList.remove('focus-line'); });
-    var s = window.getSelection();
-    if (!s.rangeCount) return;
-    var b = topBlockFrom(s.getRangeAt(0).startContainer);
-    if (b) b.classList.add('focus-line');
-  }
-
-  /* 打字机 */
-  function typewriterScroll() {
-    if (!document.body.classList.contains('typewriter') || sourceMode) return;
-    var s = window.getSelection();
-    if (!s || !s.rangeCount) return;
-    var r = s.getRangeAt(0);
-    var rect = r.getBoundingClientRect();
-    var box = scrollEl.getBoundingClientRect();
-    if (!rect.height && !rect.top) return;
-    var target = box.top + box.height * 0.45;
-    var delta = rect.top - target;
-    if (Math.abs(delta) > 24) scrollEl.scrollTop += delta;
   }
 
   /* 内容变更 */
@@ -406,12 +365,10 @@
     table: function () { Editor.insertTable(3, 3); },
     codeblock: function () { Editor.insertCodeBlock(''); },
     hr: function () { Editor.insertHr(); },
-    source: function () { setSourceMode(!sourceMode); },
     find: function () { toggleFind(); }
   };
 
   function execAction(cmd) {
-    if (cmd === 'source') { COMMANDS.source(); return; }
     if (sourceMode) { toast('源码模式下请直接输入标记，或按 Ctrl+/ 切回'); return; }
     if (!COMMANDS[cmd]) return;
     COMMANDS[cmd]();
@@ -453,9 +410,6 @@
       case 'find': toggleFind(); break;
       case 'stats': showStats(); break;
       case 'outline': toggleOutlineDrawer(); break;
-      case 'focus': setFocusMode(!document.body.classList.contains('focus')); break;
-      case 'typewriter': setTypewriter(!document.body.classList.contains('typewriter')); break;
-      case 'source': setSourceMode(!sourceMode); break;
       case 'undo': Editor.undo(); break;
       case 'redo': Editor.redo(); break;
       case 'copy': editorCopy(); break;
@@ -478,12 +432,14 @@
     if (sourceMode) return document.execCommand('copy');
     var s = window.getSelection();
     if (!s.rangeCount || s.isCollapsed) return;
+    if (!editorEl.contains(s.getRangeAt(0).commonAncestorContainer)) return; // 选区在文件树等外部区域，忽略
     try { document.execCommand('copy'); toast('已复制'); } catch (e) { }
   }
   function editorCut() {
     if (sourceMode) return document.execCommand('cut');
     var s = window.getSelection();
     if (!s.rangeCount || s.isCollapsed) return;
+    if (!editorEl.contains(s.getRangeAt(0).commonAncestorContainer)) return; // 防止剪切到文件树等外部内容
     try {
       document.execCommand('cut');
     } catch (e) {
@@ -502,6 +458,10 @@
         document.execCommand('insertText', false, text);
         onContentChanged();
       } else {
+        // 弹窗/文件树可能已夺走选区：恢复编辑器内选区后再插入
+        if (!Editor.ensureSelection()) { toast('请先点击文档内容'); return; }
+        var s = window.getSelection();
+        if (!s.rangeCount || !editorEl.contains(s.getRangeAt(0).commonAncestorContainer)) return;
         var d = document.createElement('div');
         d.innerHTML = MD.render(looksMarkdown(text) ? text : text.replace(/\n{2,}/g, '\n'));
         var md = MD2.toMarkdown(d);
@@ -718,7 +678,7 @@
 
   function makeFdDirNode(dirPath, isRoot, autoExpand) {
     var node = document.createElement('div');
-    node.className = 'fd-node';
+    node.className = 'fd-node fd-dir';
     node.setAttribute('data-dir', dirPath);
     node.innerHTML =
       '<span class="fd-caret' + (autoExpand ? ' open' : '') + '">' + FD_ICONS.caret + '</span>' +
@@ -775,10 +735,8 @@
     }
     ul.setAttribute('data-loaded', '1');
     ul.innerHTML = '';
-    if (!r || !r.entries || !r.entries.length) {
-      ul.innerHTML = '<li class="fd-empty">（空）</li>';
-      return;
-    }
+    // 空目录不显示"（空）"占位，直接留空（VS Code 习惯）
+    if (!r || !r.entries || !r.entries.length) return;
     r.entries.forEach(function (ent) {
       // 兼容 camelCase（isDir）与 snake_case（is_dir）两种后端序列化
       var isDir = typeof ent.isDir === 'boolean' ? ent.isDir : !!ent.is_dir;
@@ -896,10 +854,8 @@
       ['加粗 / 斜体 / 高亮', 'Ctrl+B / Ctrl+I / Ctrl+U'],
       ['删除线 / 行内代码', 'Ctrl+D / Ctrl+E'],
       ['插入链接', 'Ctrl+K'],
-      ['源码模式切换', 'Ctrl+/'],
       ['查找与替换', 'Ctrl+F'],
       ['大纲', 'Ctrl+2'],
-      ['专注 / 打字机', 'F8 / F9'],
       ['切换主题', 'Ctrl+T'],
       ['放大 / 缩小 / 还原', 'Ctrl+= / Ctrl+- / Ctrl+0'],
       ['列表缩进 / 反缩进', 'Tab / Shift+Tab'],
@@ -1232,13 +1188,10 @@
           e.preventDefault(); exportMarkdown();
         }
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); newWindowDoc(); return; }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); setSourceMode(false); }
         return;
       }
       var mod = e.metaKey || e.ctrlKey;
       if (!mod) {
-        if (e.key === 'F8') { e.preventDefault(); setFocusMode(!document.body.classList.contains('focus')); return; }
-        if (e.key === 'F9') { e.preventDefault(); setTypewriter(!document.body.classList.contains('typewriter')); return; }
         if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
         if (e.key === 'Escape' && !$('findbar').hidden) { clearFind(); return; }
         return;
@@ -1249,7 +1202,6 @@
       if (k === 'o') { e.preventDefault(); runAct('open'); return; }
       if (k === 'n') { e.preventDefault(); newWindowDoc(); return; }
       if (k === 'f') { e.preventDefault(); toggleFind(); return; }
-      if (k === '/') { e.preventDefault(); setSourceMode(!sourceMode); return; }
       if (k === 't') { e.preventDefault(); nextTheme(); return; }
       if (k === '1') { e.preventDefault(); toggleFilesDrawer(); return; }
       if (k === '2') { e.preventDefault(); toggleOutlineDrawer(); return; }
@@ -1287,8 +1239,6 @@
 
     // 设置恢复
     applyTheme(Store.getSetting('theme', 'light'));
-    setFocusMode(Store.getSetting('focus', false));
-    setTypewriter(Store.getSetting('typewriter', false));
     setZoom(Store.getSetting('zoom', 1));
     // 工具栏已移除
 
@@ -1333,7 +1283,8 @@
       newDoc();
     } else {
       var lastId = Store.getSetting('openId');
-      if (!Store.get(lastId) && files.length) lastId = files[0].id;
+      // 上次文档已不存在时回退到第一个文档；库为空则新建，避免 openDoc 早退导致窗口空白
+      if (!Store.get(lastId)) lastId = files.length ? files[0].id : null;
       if (lastId) openDoc(lastId); else newDoc();
     }
 
@@ -1371,18 +1322,13 @@
       e.target.value = '';
     });
 
-    // 光标 / 专注行 / 工具栏状态
+    // 光标 / 工具栏状态
     document.addEventListener('selectionchange', function () {
       if (sourceMode) return;
-      if (document.activeElement === editorEl || editorEl.contains(document.activeElement)) {
-        updateFocusLine();
-      }
       syncToolbar();
     });
-    editorEl.addEventListener('input', function () { typewriterScroll(); scanMermaid(); });
-    editorEl.addEventListener('keyup', function () { typewriterScroll(); });
-    editorEl.addEventListener('click', function () { updateFocusLine(); syncToolbar(); });
-    scrollEl.addEventListener('scroll', function () { typewriterScroll(); });
+    editorEl.addEventListener('input', function () { scanMermaid(); });
+    editorEl.addEventListener('click', function () { syncToolbar(); });
 
     // 自动保存
     window.addEventListener('beforeunload', function () { saveCurrent(); flushFsDoc(currentId); });
@@ -1398,8 +1344,6 @@
           case 'exportHtml': exportHtml(); break;
           case 'exportPdf': exportPdf(); break;
           case 'find': toggleFind(); break;
-          case 'focus': setFocusMode(!document.body.classList.contains('focus')); break;
-          case 'typewriter': setTypewriter(!document.body.classList.contains('typewriter')); break;
           case 'theme': nextTheme(); break;
           case 'outline': toggleOutlineDrawer(); break;
           case 'openFolder': openFolder(); break;

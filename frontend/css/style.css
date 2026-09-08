@@ -155,7 +155,6 @@ kbd {
   padding: 0 40px 45vh;
   background: var(--bg);
 }
-body.typewriter .page { padding-bottom: 60vh; }
 
 /* 编辑容器：全宽、贴左（Typora 式左起书写） */
 .card {
@@ -181,10 +180,6 @@ body.typewriter .page { padding-bottom: 60vh; }
   color: var(--text); resize: none; outline: none; tab-size: 2; background: none;
 }
 .source[hidden] { display: none; }
-
-/* 专注模式：当前行高亮，其余变暗（布局不变） */
-body.focus .md-body > * { opacity: .32; transition: opacity .25s ease; }
-body.focus .md-body > .focus-line { opacity: 1; }
 
 /* 底部状态栏：仅右侧字数 */
 .statusbar {
@@ -442,7 +437,6 @@ body.desktop .desktop-only { display: flex; }
   .md-body pre, .md-body .table-wrap, .md-body img { break-inside: avoid; }
   .md-body h1, .md-body h2, .md-body h3 { break-after: avoid; }
   .md-body a { color: #1a56db; }
-  body.focus .md-body > * { opacity: 1; }
 }
 
 /* 响应式：随窗口宽度自动调整（宽屏宽松、窄屏紧凑、不挤压） */
@@ -513,22 +507,35 @@ body.desktop .desktop-only { display: flex; }
 }
 .files-drawer[hidden] { display: none; }
 .files-drawer.open { transform: translateX(0); }
+/* —— 资源管理器（VS Code 风格）：固定 px 字号，不受编辑器缩放/格式影响 —— */
 .files-drawer .fd-head {
-  display: flex; align-items: center; gap: 4px;
-  padding: 12px 12px 10px; font-size: 13px; font-weight: 600; color: var(--text-strong);
+  display: flex; align-items: center; gap: 2px;
+  height: 36px; padding: 0 6px 0 16px;
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-muted);
   border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 .files-drawer .fd-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.files-drawer .fd-scroll { flex: 1; overflow-y: auto; padding: 6px 6px 14px; }
-.files-drawer .fd-tree { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
-.files-drawer .fd-tree ul { list-style: none; margin: 0; padding: 0 0 0 14px; }
-.fd-node { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; color: var(--text); min-width: 0; }
+.files-drawer .fd-scroll { flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+.files-drawer .fd-tree { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.files-drawer .fd-tree,
+.files-drawer .fd-tree * { font-size: 13px; line-height: 22px; }
+.files-drawer .fd-tree ul { list-style: none; margin: 0; padding: 0 0 0 12px; }
+.fd-node {
+  display: flex; align-items: center; height: 22px;
+  padding: 0 8px 0 4px; gap: 2px;
+  cursor: pointer; color: var(--text); min-width: 0;
+  border-radius: 0; user-select: none;
+}
 .fd-node:hover { background: var(--bg-hover); }
 .fd-node.active { background: var(--accent-soft); color: var(--accent); }
-.fd-caret { width: 14px; height: 14px; flex: 0 0 auto; color: var(--text-faint); display: grid; place-items: center; transition: transform .15s ease; }
-.fd-caret svg { width: 10px; height: 10px; }
+.fd-caret { width: 16px; height: 22px; flex: 0 0 auto; color: var(--text-faint); display: grid; place-items: center; transition: transform .12s ease; }
+.fd-caret svg { width: 11px; height: 11px; }
 .fd-caret.open { transform: rotate(90deg); }
-.fd-ico { width: 14px; height: 14px; flex: 0 0 auto; color: var(--text-faint); display: grid; place-items: center; }
-.fd-ico svg { width: 13px; height: 13px; }
+.fd-ico { width: 18px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; }
+.fd-ico svg { width: 14px; height: 14px; }
+.fd-dir .fd-ico { color: #dcb67a; }
+.fd-file .fd-ico { color: var(--text-faint); }
 .fd-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fd-empty { padding: 18px 10px; font-size: 12px; color: var(--text-faint); text-align: center; }
+.fd-empty { padding: 0 8px 0 38px; font-size: 12px !important; line-height: 20px !important; color: var(--text-faint); text-align: left; list-style: none; }

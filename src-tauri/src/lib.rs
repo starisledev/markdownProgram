@@ -7,6 +7,10 @@
 
 mod commands;
 
+/// 前端内容指纹（build.rs 生成）：前端文件变化会改变本文件内容，
+/// 从而强制本 crate 重编，保证 `generate_context!` 重新嵌入最新前端资源。
+include!(concat!(env!("OUT_DIR"), "/frontend_stamp.rs"));
+
 use tauri::Manager;
 
 /// 注册应用自定义命令。
