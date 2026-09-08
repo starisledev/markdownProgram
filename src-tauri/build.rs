@@ -19,7 +19,43 @@ fn track(dir: &Path) {
     println!("cargo:rerun-if-changed={}", dir.display());
 }
 
+/// windows-gnu 目标在运行时需要 WebView2Loader.dll 与 exe 同目录：
+/// 从 cargo 注册表的 webview2-com-sys 中复制到 target\release，免去手工部署。
+fn copy_webview2_loader() {
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("gnu") {
+        return;
+    }
+    let Some(out_dir) = std::env::var_os("OUT_DIR").map(std::path::PathBuf::from) else {
+        return;
+    };
+    // OUT_DIR = <target>\release\build\<pkg>-<hash>\out → 上溯 3 级到 <target>\release
+    let Some(exe_dir) = out_dir.ancestors().nth(3).map(|p| p.to_path_buf()) else {
+        return;
+    };
+    let Ok(cargo_home) = std::env::var("CARGO_HOME") else {
+        return;
+    };
+    let src_root = Path::new(&cargo_home).join("registry/src");
+    let Ok(indexes) = fs::read_dir(&src_root) else {
+        return;
+    };
+    for idx in indexes.flatten() {
+        let Ok(crates) = fs::read_dir(idx.path()) else {
+            continue;
+        };
+        for c in crates.flatten() {
+            let name_ok = c.file_name().to_string_lossy().starts_with("webview2-com-sys-");
+            let dll = c.path().join("x64/WebView2Loader.dll");
+            if name_ok && dll.is_file() {
+                let _ = fs::copy(&dll, exe_dir.join("WebView2Loader.dll"));
+                return;
+            }
+        }
+    }
+}
+
 fn main() {
+    copy_webview2_loader();
     let frontend = Path::new(env!("CARGO_MANIFEST_DIR")).join("../frontend");
     if frontend.is_dir() {
         track(&frontend);
