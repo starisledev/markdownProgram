@@ -113,6 +113,14 @@
   /* 文档 */
   function currentDoc() { return Store.get(currentId); }
 
+  /** 同步窗口标题：document.title + 原生标题栏（多窗口时靠标题区分文档） */
+  function syncWindowTitle(text) {
+    var t = text || '砚屿 — Markdown 编辑器';
+    document.title = t;
+    var b = bridgeApi();
+    if (b.setWindowTitle) b.setWindowTitle(t);
+  }
+
   function saveCurrent(flash) {
     if (!currentId) return;
     var f = Store.get(currentId);
@@ -120,6 +128,11 @@
     var md = sourceMode ? sourceEl.value : Editor.getMarkdown();
     if (md !== f.content) {
       Store.update(currentId, { content: md });
+      // 工作区文件实时写盘（防意外关闭窗口丢失最近编辑）
+      if (f.fsPath) {
+        var b = bridgeApi();
+        if (b.writeFile) b.writeFile(f.fsPath, md).catch(function () { });
+      }
       if (flash) {
         var s = $('docSaved');
         s.textContent = '已保存';
@@ -137,7 +150,7 @@
     currentId = id;
     currentFsPath = f.fsPath || null;
     Store.setSetting('openId', id);
-    document.title = f.name + ' — 砚屿';
+    syncWindowTitle(f.name + ' — 砚屿');
     if (sourceMode) sourceEl.value = f.content || '';
     else Editor.setMarkdown(f.content || '');
     clearFind();
@@ -427,6 +440,8 @@
       case 'new': newWindowDoc(); break;
       case 'delete': deleteCurrent(); break;
       case 'open':
+        // 桌面端走原生「打开文件」对话框：能拿到真实路径，Ctrl+S 直接存回原文件
+        if (isDesktop && bridgeApi().openFileDialog) { openViaDialog(); break; }
         $('fileInput').setAttribute('accept', '.md,.markdown,.txt');
         $('fileInput').click();
         break;
@@ -631,6 +646,16 @@
 
   function bridgeApi() { return window.markoraBridge || {}; }
 
+  /** 文件 → 打开（桌面端）：原生对话框选择文件 → 直接按磁盘文件打开（Ctrl+S 存回原文件） */
+  async function openViaDialog() {
+    var b = bridgeApi();
+    var p;
+    try { p = await b.openFileDialog(); } catch (e) { return; }
+    if (!p) return;
+    var name = p.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop();
+    openFsFile(p, name);
+  }
+
   /** 弹出系统原生"打开文件夹"→ 设为工作区（不导入、不改本地库） */
   async function openFolder() {
     var b = bridgeApi();
@@ -648,6 +673,7 @@
     Store.setSetting('workspaceDir', dir);
     var t = $('fdTitle');
     if (t) t.textContent = dir.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop() || dir;
+    syncWindowTitle((t ? t.textContent : dir) + ' — 砚屿');
     showFilesDrawer();
     await refreshFdTree();
     renderWsRecent();
@@ -741,7 +767,12 @@
     if (!b.listDir) return;
     if (ul.getAttribute('data-loaded')) return;
     var r;
-    try { r = await b.listDir(dirPath); } catch (e) { return; }
+    try { r = await b.listDir(dirPath); }
+    catch (e) {
+      // 失败不标记 loaded，折叠再展开即可重试
+      ul.innerHTML = '<li class="fd-empty">读取目录失败，点击重试</li>';
+      return;
+    }
     ul.setAttribute('data-loaded', '1');
     ul.innerHTML = '';
     if (!r || !r.entries || !r.entries.length) {
@@ -749,7 +780,9 @@
       return;
     }
     r.entries.forEach(function (ent) {
-      ul.appendChild(ent.isDir ? makeFdDirNode(ent.path, false, false) : makeFdFileNode(ent.path, ent.name));
+      // 兼容 camelCase（isDir）与 snake_case（is_dir）两种后端序列化
+      var isDir = typeof ent.isDir === 'boolean' ? ent.isDir : !!ent.is_dir;
+      ul.appendChild(isDir ? makeFdDirNode(ent.path, false, false) : makeFdFileNode(ent.path, ent.name));
     });
   }
 
@@ -1243,6 +1276,7 @@
         if (/\.(md|markdown|txt)$/i.test(files[i].name)) mds.push(files[i]);
       }
       if (mds.length) importFiles(mds);
+      else toast('仅支持拖入 .md / .markdown / .txt 文件');
     });
   }
 
@@ -1270,6 +1304,19 @@
         modal('图片预览', '<img src="' + src + '" style="max-width:100%;border-radius:8px">', '关闭', null);
       }
     });
+
+    // 恢复上次工作区（先于打开文档执行，保证最终标题显示的是文档名）
+    try {
+      var wsDir = Store.getSetting('workspaceDir', null);
+      if (wsDir) {
+        workspaceDir = wsDir;
+        var t = $('fdTitle');
+        if (t) t.textContent = wsDir.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop() || wsDir;
+        syncWindowTitle((t ? t.textContent : wsDir) + ' — 砚屿');
+        showFilesDrawer();
+        refreshFdTree();
+      }
+    } catch (e) { console.error('[init] workspace', e); }
 
     // 打开上次文档；Ctrl+N 新窗口（?new=1 或窗口 label 为 doc-*）直接新建空白文档
     var startNew = false;
@@ -1303,18 +1350,8 @@
     safeCall('bindWindowDrop', bindWindowDrop);
     scanMermaid();
 
-    // 启动时恢复最近工作区（显示左侧文件树，不自动读文件）
+    // 启动时恢复最近工作区列表（工作区目录恢复见上方，先于打开文档执行）
     try { renderWsRecent(); } catch (e) { console.error('[init] renderWsRecent', e); }
-    try {
-      var wsDir = Store.getSetting('workspaceDir', null);
-      if (wsDir) {
-        workspaceDir = wsDir;
-        var t = $('fdTitle');
-        if (t) t.textContent = wsDir.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop() || wsDir;
-        showFilesDrawer();
-        refreshFdTree();
-      }
-    } catch (e) { console.error('[init] workspace', e); }
     window.__appReady = true;
 
     // 文件输入（导入 / 图片）
@@ -1348,7 +1385,7 @@
     scrollEl.addEventListener('scroll', function () { typewriterScroll(); });
 
     // 自动保存
-    window.addEventListener('beforeunload', function () { saveCurrent(); });
+    window.addEventListener('beforeunload', function () { saveCurrent(); flushFsDoc(currentId); });
     setInterval(function () { saveCurrent(); }, 30000);
 
     // 桌面壳菜单

@@ -36,6 +36,13 @@
       });
     },
 
+    /* 弹出系统原生「打开文件」对话框，返回文件绝对路径（取消返回 null） */
+    openFileDialog: function () {
+      return invoke('open_file_dialog').then(function (r) {
+        return (r && r.path) ? r.path : null;
+      });
+    },
+
     /* 最近工作区列表 */
     recentWorkspaces: function () {
       return invoke('recent_workspaces').then(function (r) {
@@ -90,6 +97,16 @@
     /* 窗口标题栏配色跟随主题（dark/night → 深色标题栏） */
     applyTheme: function (mode) {
       try { invoke('apply_window_theme', { mode: mode }); } catch (e) { }
+    },
+
+    /* 同步原生窗口标题（打开 / 切换文档时，标题栏显示当前文件名） */
+    setWindowTitle: function (title) {
+      try {
+        if (T.window && T.window.getCurrentWindow) {
+          var w = T.window.getCurrentWindow();
+          if (w && w.setTitle) w.setTitle(String(title == null ? '' : title));
+        }
+      } catch (e) { }
     },
 
     /* 退出应用 */

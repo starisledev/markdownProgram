@@ -36,6 +36,7 @@ const RECENT_FILE: &str = "workspaces.json";
 // 数据结构
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DirEntry {
     pub name: String,
     pub is_dir: bool,
@@ -189,6 +190,12 @@ pub fn read_file(path: String) -> Result<ReadFileResult, String> {
         return Err("too-large".into());
     }
     let content = fs::read_to_string(p).map_err(|e| format!("{e}"))?;
+    // 剥离 UTF-8 BOM（Windows 记事本等工具常写入），避免文档首行出现不可见字符
+    // 导致第一个标题 / 列表渲染异常
+    let content = match content.strip_prefix('\u{feff}') {
+        Some(rest) => rest.to_string(),
+        None => content,
+    };
     Ok(ReadFileResult {
         content,
         mtime: meta.modified().ok().and_then(|m| {
@@ -245,6 +252,17 @@ pub fn recent_workspaces(app: AppHandle) -> Result<WorkspacesResult, String> {
     Ok(WorkspacesResult {
         workspaces: load_recent_workspaces(&app),
     })
+}
+
+/// 弹出系统原生「打开文件」对话框，返回所选文件绝对路径（取消则 None）。
+/// 与 HTML file input 不同，原生对话框能拿到真实路径，编辑后可直接存回原文件。
+#[tauri::command]
+pub fn open_file_dialog() -> Result<Option<String>, String> {
+    let picked = rfd::FileDialog::new()
+        .set_title("打开 Markdown 文件")
+        .add_filter("Markdown / 文本文件", &["md", "markdown", "txt"])
+        .pick_file();
+    Ok(picked.map(|p| p.to_string_lossy().into_owned()))
 }
 
 /// 退出应用。

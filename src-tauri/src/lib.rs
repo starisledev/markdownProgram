@@ -17,6 +17,7 @@ macro_rules! app_invoke_handler {
             commands::fs::read_file,
             commands::fs::write_file,
             commands::fs::open_folder,
+            commands::fs::open_file_dialog,
             commands::fs::recent_workspaces,
             commands::fs::quit_app,
             commands::markdown::md_to_html,
