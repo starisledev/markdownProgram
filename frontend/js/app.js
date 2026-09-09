@@ -204,17 +204,52 @@
     });
   }
 
+  /** 重命名当前文档（仅本地库文档；磁盘工作区文件改名请直接在文件树/资源管理器中操作） */
+  function renameCurrent() {
+    if (!currentId) return;
+    var f = Store.get(currentId);
+    if (!f) return;
+    if (f.fsPath) {
+      toast('工作区磁盘文件的改名请在文件树或资源管理器中操作');
+      return;
+    }
+    var base = f.name.replace(/\.(md|markdown|txt)$/i, '');
+    Markora.prompt('重命名文档', base).then(function (name) {
+      if (!name) return;
+      var nn = String(name).trim();
+      if (!nn || nn === f.name) return;
+      if (!/\.(md|markdown|txt)$/i.test(nn)) nn += '.md';
+      Store.update(f.id, { name: nn });
+      syncWindowTitle(nn + ' — 砚屿');
+      renderRecent();
+      toast('已重命名为「' + nn + '」');
+    });
+  }
+
+  /** 最近修改时间的相对显示：今日→HH:MM，昨天→「昨天」，今年→M/D，更早→YYYY/M/D */
+  function fmtRecent(ts) {
+    var d = new Date(ts), now = new Date();
+    if (!isFinite(d.getTime())) return '';
+    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+    if (d.toDateString() === now.toDateString()) return pad(d.getHours()) + ':' + pad(d.getMinutes());
+    var yest = new Date(now.getTime() - 864e5);
+    if (d.toDateString() === yest.toDateString()) return '昨天';
+    if (d.getFullYear() === now.getFullYear()) return (d.getMonth() + 1) + '/' + d.getDate();
+    return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
   function renderRecent() {
     var box = $('recentList');
     if (!box) return;
     var files = Store.all().filter(function (f) { return f.type === 'file'; })
-      .sort(function (a, b) { return b.modified - a.modified; }).slice(0, 10);
+      .sort(function (a, b) { return b.modified - a.modified; }).slice(0, 3);
     if (!files.length) {
       box.innerHTML = '<div class="recent-empty">暂无文档，从「打开」导入吧</div>';
     } else {
       box.innerHTML = files.map(function (f) {
-        return '<div class="menu-item recent-item" data-recent="' + f.id + '" title="' + f.name.replace(/"/g, '') + '">' +
-          '<span>' + escapeHtml(f.name) + '</span></div>';
+        return '<div class="menu-item recent-item" data-recent="' + f.id + '" title="' + escapeHtml(f.name) + '">' +
+          '<span class="ri-name">' + escapeHtml(f.name) + '</span>' +
+          '<span class="ri-meta">' + fmtRecent(f.modified) + '</span></div>';
       }).join('');
     }
   }
@@ -396,6 +431,7 @@
     switch (act) {
       case 'new': newWindowDoc(); break;
       case 'delete': deleteCurrent(); break;
+      case 'rename': renameCurrent(); break;
       case 'open':
         // 桌面端走原生「打开文件」对话框：能拿到真实路径，Ctrl+S 直接存回原文件
         if (isDesktop && bridgeApi().openFileDialog) { openViaDialog(); break; }
@@ -643,6 +679,10 @@
   function showFilesDrawer() {
     var d = $('filesDrawer');
     if (!d) return;
+    var t = $('fdTitle');
+    if (t && workspaceDir) {
+      t.textContent = workspaceDir.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop() || workspaceDir;
+    }
     d.hidden = false;
     var m = $('main'); if (m) m.classList.add('fs-open');
     requestAnimationFrame(function () { d.classList.add('open'); });
@@ -811,10 +851,10 @@
       box.innerHTML = '<div class="recent-empty">暂无，打开一个文件夹试试</div>';
       return;
     }
-    box.innerHTML = list.slice(0, 6).map(function (d) {
+    box.innerHTML = list.slice(0, 3).map(function (d) {
       return '<div class="menu-item recent-item" data-ws="' + escapeHtml(d) + '" title="' + escapeHtml(d) + '">' +
-        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;text-align:left">' + escapeHtml(d.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop()) + '</span>' +
-        '<span style="font-size:10px;color:var(--text-faint)">' + escapeHtml(d.replace(/^.*[\\\/]([^\\\/]*[\\\/][^\\\/]*)$/, '$1')) + '</span></div>';
+        '<span class="ri-name">' + escapeHtml(d.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop()) + '</span>' +
+        '<span class="ri-meta">' + escapeHtml(d.replace(/^.*[\\\/]([^\\\/]*)[\\\/][^\\\/]*$/, '$1')) + '</span></div>';
     }).join('');
   }
 
@@ -855,11 +895,15 @@
       ['删除线 / 行内代码', 'Ctrl+D / Ctrl+E'],
       ['插入链接', 'Ctrl+K'],
       ['查找与替换', 'Ctrl+F'],
-      ['大纲', 'Ctrl+2'],
+      ['打开文件', 'Ctrl+O'],
+      ['导出 Markdown', 'Ctrl+S'],
+      ['打印 / 导出 PDF', 'Ctrl+P'],
+      ['新建独立窗口', 'Ctrl+N'],
+      ['文件树 / 大纲', 'Ctrl+1 / Ctrl+2'],
       ['切换主题', 'Ctrl+T'],
       ['放大 / 缩小 / 还原', 'Ctrl+= / Ctrl+- / Ctrl+0'],
       ['列表缩进 / 反缩进', 'Tab / Shift+Tab'],
-      ['新开文档', 'Ctrl+N'], ['导出', 'Ctrl+S / Ctrl+P']
+      ['全屏', 'F11']
     ];
     var body = '<div class="help-grid">' + rows.map(function (r) {
       return '<div class="hrow"><span>' + r[0] + '</span><kbd>' + r[1] + '</kbd></div>';
@@ -868,7 +912,7 @@
   }
   function showAbout() {
     modal('关于砚屿', '<div style="line-height:1.9">' +
-      '<b style="font-size:15px">砚屿 1.1</b> — 所见即所得 Markdown 编辑器。<br>' +
+      '<b style="font-size:15px">砚屿 1.2</b> — 所见即所得 Markdown 编辑器。<br>' +
       '文档保存在本地，不联网、不上传。<br>' +
       '愿以代码为锚，在浩瀚数字世界，构筑一方踏实的星屿。<br>' +
       '<a href="https://github.com/starisledev" target="_blank">https://github.com/starisledev</a></div>',
@@ -950,6 +994,17 @@
     $('findbar').hidden = true;
     updateFindCount();
   }
+
+  /** 移除替换后残留的空 class span（查找高亮包裹的痕迹，无任何样式意义），避免污染导出 DOM */
+  function stripEmptySpans() {
+    $$('span', editorEl).forEach(function (s) {
+      if (s.className && s.className.trim()) return;
+      if (s.querySelector('img')) return;
+      var p = s.parentNode;
+      while (s.firstChild) p.insertBefore(s.firstChild, s);
+      p.removeChild(s);
+    });
+  }
   function toggleFind() {
     var bar = $('findbar');
     if (bar.hidden) {
@@ -994,6 +1049,7 @@
       hitIndex = hitIndex - 1;
       updateFindCount();
       if (hits.length) gotoHit(1);
+      stripEmptySpans();
       onContentChanged();
     });
     $('replaceAll').addEventListener('click', function () {
@@ -1010,6 +1066,7 @@
         var nd = editorEl.childNodes[i];
         if (nd.normalize) nd.normalize();
       }
+      stripEmptySpans();
       updateFindCount();
       onContentChanged();
       toast('已替换 ' + n + ' 处');
@@ -1255,17 +1312,10 @@
       }
     });
 
-    // 恢复上次工作区（先于打开文档执行，保证最终标题显示的是文档名）
+    // 记住上次工作区目录（不自动展开文件树），按 Ctrl+1 / 菜单仍可随时打开
     try {
       var wsDir = Store.getSetting('workspaceDir', null);
-      if (wsDir) {
-        workspaceDir = wsDir;
-        var t = $('fdTitle');
-        if (t) t.textContent = wsDir.replace(/[\\\/]+$/, '').split(/[\\\/]/).pop() || wsDir;
-        syncWindowTitle((t ? t.textContent : wsDir) + ' — 砚屿');
-        showFilesDrawer();
-        refreshFdTree();
-      }
+      if (wsDir) workspaceDir = wsDir;
     } catch (e) { console.error('[init] workspace', e); }
 
     // 打开上次文档；Ctrl+N 新窗口（?new=1 或窗口 label 为 doc-*）直接新建空白文档

@@ -18,5 +18,10 @@ yes.pub
 # Release 发布资产（仅在 GitHub Release 上传，不入库）
 /release/
 
+# 发布产物（安装包 / 便携版压缩包；脚本与发布说明入库）
+/dist/*.zip
+/dist/*.exe
+/dist/*.msi
+
 # Tauri 自动生成文件
 /src-tauri/gen/schemas/

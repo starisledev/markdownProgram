@@ -39,7 +39,8 @@
     /* 弹出系统原生「打开文件」对话框，返回文件绝对路径（取消返回 null） */
     openFileDialog: function () {
       return invoke('open_file_dialog').then(function (r) {
-        return (r && r.path) ? r.path : null;
+        // Rust 端返回 Option<String>：选中文件时为 "C:\\path\\file.md" 纯字符串，取消为 null
+        return (typeof r === 'string' && r.length) ? r : null;
       });
     },
 

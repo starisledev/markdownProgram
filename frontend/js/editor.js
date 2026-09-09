@@ -712,32 +712,80 @@
 
   /* 键盘处理 */
   function splitAtCaret(container) {
-    // 返回 {before: frag, after: frag}
     var s = sel();
     var r = s.getRangeAt(0);
-    var rg = r.cloneRange();
-    rg.selectNodeContents(container);
-    rg.setStart(r.endContainer, r.endOffset);
-    var after = rg.extractContents ? rg.extractContents() : null;
+    try {
+      var rg = r.cloneRange();
+      rg.selectNodeContents(container);
+      rg.setStart(r.endContainer, r.endOffset);
+      // 跨块选区/异常选区时 setStart 可能产生倒置 Range，extractContents 会抛异常；
+      // 捕获后走下方手动摘取路径，绝不把异常抛出打断后续回车/退格处理
+      var after = rg.extractContents ? rg.extractContents() : null;
+      if (after) return after;
+    } catch (e) { /* 非法 Range：回退手动摘取 */ }
     // 兼容：直接把光标后的节点摘出来
-    if (!after) {
-      after = doc().createDocumentFragment();
-      var n = r.endContainer;
-      if (n.nodeType === 3) {
-        var tail = doc().createTextNode(n.nodeValue.slice(r.endOffset));
-        if (tail.length) after.appendChild(tail);
-        n.nodeValue = n.nodeValue.slice(0, r.endOffset);
-        var nn = n.nextSibling;
-        while (nn) { var nx = nn.nextSibling; after.appendChild(nn); nn = nx; }
-      }
+    var d = doc().createDocumentFragment();
+    var n = r.endContainer;
+    if (n && n.nodeType === 3) {
+      var tail = doc().createTextNode(n.nodeValue.slice(r.endOffset));
+      if (tail.length) d.appendChild(tail);
+      n.nodeValue = n.nodeValue.slice(0, r.endOffset);
+      var nn = n.nextSibling;
+      while (nn) { var nx = nn.nextSibling; d.appendChild(nn); nn = nx; }
     }
-    return after;
+    return d;
   }
 
+  /** 回车主入口：无论内部发生什么异常都不允许回车键永久失效 —— 捕获后自愈结构并兜底插入段落 */
   function handleEnter(e) {
+    try {
+      enterKey(e);
+    } catch (err) {
+      enterFallback(e, err);
+    }
+  }
+
+  /** 回车异常兜底：修复 DOM 结构，并保证在光标处必有一个可用的新段落（回车永远有响应） */
+  function enterFallback(e, err) {
+    try { console.error('[editor] Enter 处理异常，已自动恢复：', err && err.message || err); } catch (e2) { }
+    ensureStructure();
+    var done = false;
+    var s = sel();
+    if (s && s.rangeCount) {
+      try {
+        var r = s.getRangeAt(0);
+        r.collapse(false);
+        var b = topBlock(r.startContainer);
+        if (b && b.parentNode) {
+          var np = emptyP();
+          b.parentNode.insertBefore(np, b.nextSibling);
+          placeCaretStart(np);
+          done = true;
+        }
+      } catch (e3) { }
+    }
+    if (!done) {
+      try {
+        var np2 = emptyP();
+        editor.appendChild(np2);
+        placeCaretStart(np2);
+      } catch (e4) { }
+    }
+    changed();
+  }
+
+  function enterKey(e) {
     var s = sel();
     if (!s.rangeCount) return;
     var r = s.getRangeAt(0);
+    // 带选区按回车：先删除选中内容并折叠（Enter 的标准语义），避免选区破坏后续切分逻辑
+    if (!r.collapsed) {
+      r.deleteContents();
+      r.collapse(true);
+      s.removeAllRanges();
+      s.addRange(r);
+      r = s.getRangeAt(0);
+    }
     var node = r.startContainer;
 
     /* 代码块内：插入换行 */
@@ -903,7 +951,18 @@
     changed();
   }
 
+  /** 退格主入口：异常时自愈结构，保证退格与后面的编辑始终可用 */
   function handleBackspace(e) {
+    try {
+      backspaceKey(e);
+    } catch (err) {
+      try { console.error('[editor] Backspace 处理异常，已自动恢复：', err && err.message || err); } catch (e2) { }
+      ensureStructure();
+      changed();
+    }
+  }
+
+  function backspaceKey(e) {
     var s = sel();
     if (!s.rangeCount || !s.isCollapsed) return;
     var r = s.getRangeAt(0);

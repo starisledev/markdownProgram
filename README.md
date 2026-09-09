@@ -31,7 +31,10 @@
 
 ## 下载安装
 
-前往 [Releases](https://github.com/starisledev/markdownProgram/releases/latest) 下载最新的 Windows x64 便携版压缩包，解压后直接运行 `markora.exe` 即可，无需安装。
+前往 [Releases](https://github.com/starisledev/markdownProgram/releases/latest) 下载最新版本：
+
+- **安装版（推荐）**：`Markora_1.2.0_x64-setup.exe`（NSIS 引导安装）或 `Markora_1.2.0_x64_en-US.msi`，双击即可安装
+- **便携版**：`markora-v1.2.0-windows-x64.zip`，解压后直接运行 `markora.exe`，无需安装
 
 > 系统要求：Windows 10/11（Windows 10 需已安装 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，Windows 11 内置）。
 

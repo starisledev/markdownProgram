@@ -88,6 +88,13 @@ kbd {
 
 /* 最近文档 */
 .recent-item { font-size: 13px; }
+.recent-item .ri-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+}
+.recent-item .ri-meta {
+  flex: 0 0 auto; font-size: 10px; color: var(--text-faint);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
 .recent-empty { padding: 4px 10px; font-size: 12px; color: var(--text-faint); }
 .recent-head { padding: 2px 10px 4px; font-size: 11px; color: var(--text-faint); font-weight: 600; }
 

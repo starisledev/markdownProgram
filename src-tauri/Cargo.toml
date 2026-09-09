@@ -1,6 +1,6 @@
 [package]
 name = "markora"
-version = "1.1.0"
+version = "1.2.0"
 description = "Typora 风格的所见即所得 Markdown 编辑器（Electron 版 Rust/Tauri v2 重构）"
 authors = ["Markora"]
 edition = "2021"
