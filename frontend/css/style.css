@@ -88,6 +88,13 @@ kbd {
 
 /* 最近文档 */
 .recent-item { font-size: 13px; }
+.recent-item .ri-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+}
+.recent-item .ri-meta {
+  flex: 0 0 auto; font-size: 10px; color: var(--text-faint);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
 .recent-empty { padding: 4px 10px; font-size: 12px; color: var(--text-faint); }
 .recent-head { padding: 2px 10px 4px; font-size: 11px; color: var(--text-faint); font-weight: 600; }
 
@@ -115,6 +122,16 @@ kbd {
 .tool.on { background: var(--accent-soft); color: var(--accent); }
 .tb-sep { width: 1px; height: 17px; background: var(--border); margin: 0 5px; }
 .tb-flex { flex: 1; }
+
+/* 段落样式下拉 */
+.tb-select {
+  height: 25px; padding: 0 6px; margin-right: 2px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font-size: 12.5px;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.tb-select:hover { border-color: var(--border-strong); }
+.tb-select:focus { border-color: var(--accent); outline: none; }
 
 /* 段落样式下拉 */
 .para-pop { position: relative; margin-right: 3px; }
@@ -192,6 +209,8 @@ kbd {
   user-select: none;
 }
 .st-item { white-space: nowrap; }
+.st-item.doc { max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+#stPos { color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .st-spacer { flex: 1; }
 
 /* 查找替换条 */
@@ -296,7 +315,7 @@ kbd {
 .md-body h5 { font-size: 1em; }
 .md-body h6 { font-size: .95em; color: var(--text-muted); }
 
-.md-body p { margin: 0 0 1em; }
+.md-body p { margin: 0 0 1em; min-height: 1em; }
 .md-body p:last-child { margin-bottom: 0; }
 .md-body strong { font-weight: 650; color: var(--text-strong); }
 .md-body em { font-style: italic; }
@@ -351,7 +370,7 @@ kbd {
 .md-body code.md-inline-code, .md-body :not(pre) > code {
   font-family: var(--font-mono); font-size: .875em;
   padding: .15em .4em; border-radius: 4px;
-  background: var(--bg-code); color: var(--code-var);
+  background: var(--bg-code); color: var(--code-c);
   border: 1px solid var(--border);
 }
 

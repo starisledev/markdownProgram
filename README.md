@@ -1,11 +1,8 @@
 # 砚屿
 
-砚屿是一款 Typora 风格的**所见即所得（WYSIWYG）Markdown 编辑器**，基于 Rust + Tauri v2 构建。输入即排版，无需分栏预览；文档全部保存在本地，不联网、不上传。
+砚屿是一款 Typora 风格的**所见即所得（WYSIWYG）Markdown 编辑器**，基于 Electron 构建。输入即排版，无需分栏预览；文档全部保存在本地，不联网、不上传。
 
-[![License](https://img.shields.io/badge/License-%E9%9D%9E%E5%95%86%E4%B8%9A-blue)](./LICENSE)
-![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
-![Tauri](https://img.shields.io/badge/Tauri-2.0-orange)
-![Rust](https://img.shields.io/badge/Rust-1.77%2B-dea584)
+[0](./LICENSE) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey) ![Electron](https://img.shields.io/badge/Electron-Latest-47848F) ![Node](https://img.shields.io/badge/Node-18%2B-339933)
 
 ## 界面预览
 
@@ -31,12 +28,16 @@
 
 ## 下载安装
 
-前往 [Releases](https://github.com/starisledev/markdownProgram/releases/latest) 下载最新的 Windows x64 便携版压缩包，解压后直接运行 `markora.exe` 即可，无需安装。
+前往 [Releases](https://github.com/starisledev/markdownProgram/releases/latest) 下载最新版本：
 
-> 系统要求：Windows 10/11（Windows 10 需已安装 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)，Windows 11 内置）。
+- **安装版（推荐）**：`Markora_1.2.0_x64-setup.exe`（NSIS 引导安装）或 `Markora_1.2.0_x64_en-US.msi`，双击即可安装
+- **便携版**：`markora-v1.2.0-windows-x64.zip`，解压后直接运行 `markora.exe`，无需安装
+
+> 系统要求：Windows 10/11；Electron 自带 Chromium 运行时，无需额外安装 WebView2 Runtime。
 
 ## 技术架构
 
+- **运行时**：Electron（Chromium 渲染 UI + Node.js 主进程），一套代码多平台
 - **前端**：原生 HTML / CSS / JavaScript，无任何构建步骤，无需 npm
   - `editor.js`：contenteditable 所见即所得编辑内核
   - `markdown.js`：编辑器内实时渲染
@@ -44,129 +45,79 @@
   - `highlight.js`：轻量代码高亮
   - `store.js`：文档与 UI 状态（localStorage）
   - `app.js`：应用层（菜单 / 主题 / 快捷键 / 工作区 / 查找替换）
-  - `tauri-bridge.js`：前端与 Rust 后端的桥接层
-- **后端**：Rust + Tauri v2
-  - `commands/fs.rs`：目录列举、文件安全读写、打开文件夹、最近工作区
-  - `commands/markdown.rs`：基于 pulldown-cmark 的 Markdown → HTML 渲染
-  - `commands/config.rs`：应用配置持久化（settings.json）
-  - `commands/export.rs`：原生「另存为」对话框导出
-  - `commands/window.rs`：多窗口管理（Ctrl+N 新建窗口、主题传递）
+- **主进程**（`electron/`）：
+  - `main.js`：窗口创建、文件系统读写、打开/另存为对话框、最近工作区、多窗口与主题联动
+  - `preload.js`：以 `window.markoraBridge` 暴露统一桥接契约（通过 IPC invoke 调用主进程能力）
 
 ## 目录结构
 
-```
+```text
 markdownProgram/
 ├── README.md
 ├── LICENSE
+├── package.json              # Electron 入口与 electron-builder 打包配置
+├── build/                    # 打包图标（icon.ico 等）
 ├── docs/
-│   └── screenshots/           # README 截图
-├── frontend/                  # 前端（纯静态资源，无需构建）
-│   ├── index.html             # 页面骨架
+│   └── screenshots/          # README 截图
+├── electron/
+│   ├── main.js               # Electron 主进程（窗口 / IPC / 文件系统）
+│   └── preload.js            # 桥接层（window.markoraBridge）
+├── frontend/                 # 前端（纯静态资源，无需构建）
+│   ├── index.html            # 页面骨架
 │   ├── css/
-│   │   ├── style.css          # 主样式
-│   │   └── themes.css         # 主题样式
+│   │   ├── style.css         # 主样式
+│   │   └── themes.css        # 主题样式
 │   └── js/
-│       ├── app.js             # 应用层
-│       ├── editor.js          # 所见即所得编辑内核
-│       ├── markdown.js        # 实时渲染
-│       ├── to-markdown.js     # 导出 Markdown
-│       ├── highlight.js       # 代码高亮
-│       ├── store.js           # 数据层
-│       └── tauri-bridge.js    # Tauri 桥接
-└── src-tauri/                 # Rust + Tauri v2 后端
-    ├── Cargo.toml
-    ├── build.rs
-    ├── tauri.conf.json        # 窗口 / 图标 / 打包配置
-    ├── icons/
-    └── src/
-        ├── main.rs
-        ├── lib.rs             # 命令注册
-        └── commands/
-            ├── mod.rs
-            ├── fs.rs
-            ├── markdown.rs
-            ├── config.rs
-            ├── export.rs
-            └── window.rs
+│       ├── app.js            # 应用层
+│       ├── editor.js         # 所见即所得编辑内核
+│       ├── markdown.js       # 实时渲染
+│       ├── to-markdown.js    # 导出 Markdown
+│       ├── highlight.js      # 代码高亮
+│       └── store.js          # 数据层
+├── tools/
+│   └── make_icon.py          # 图标生成脚本
+└── dist/                     # 发布脚本与发布说明（zip 不入库）
 ```
 
 ## 从源码编译（Windows）
 
 ### 环境要求
 
-1. **Rust 工具链**
-
-   - 访问 <https://rustup.rs/> 下载并运行 `rustup-init.exe`，或使用：
-     ```powershell
-     winget install Rustlang.Rustup
-     ```
-   - 安装完成后**重新打开终端**，验证：
-     ```powershell
-     rustc --version
-     cargo --version
-     ```
-
-2. **MSVC 链接器（link.exe）**
-
-   - 安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/zh-hans/downloads/)，勾选「使用 C++ 的桌面开发」工作负载。
-   - 若 `cargo build` 报找不到 `link.exe`，通常是未安装该组件。
-
-3. **WebView2**
-
-   - Windows 11 已内置 WebView2 Runtime，无需额外安装；Windows 10 用户请确认已安装 WebView2 Runtime。
-
-4. **Tauri CLI**（仅打包安装程序时需要）
-
-   ```powershell
-   cargo install tauri-cli --version "^2"
-   ```
+**Node.js 18+（含 npm）**：<https://nodejs.org/>
 
 ### 编译步骤
 
-克隆仓库：
+克隆仓库并安装依赖：
 
 ```powershell
 git clone https://github.com/starisledev/markdownProgram.git
-cd markdownProgram\src-tauri
+cd markdownProgram
+npm install
 ```
 
-**开发调试**（生成 debug 版）：
+**开发调试**（启动开发窗口）：
 
 ```powershell
-cargo build
-cargo run
+npm start
 ```
 
-**发布构建**（推荐，生成 release 版可执行文件）：
+**发布构建**（生成 NSIS 安装程序 + 便携 zip）：
 
 ```powershell
-cargo build --release
+npm run dist
 ```
 
-release 产物路径：
+产物位于：
 
+```text
+dist-electron/
+├── Markora-1.3.0-windows-x64-setup.exe   # NSIS 安装程序（双击安装）
+└── Markora-1.3.0-windows-x64.zip         # 便携版（解压即用）
 ```
-src-tauri\target\release\markora.exe
-```
-
-**打包安装程序**（可选，生成 NSIS / MSI 安装包）：
-
-```powershell
-cargo tauri build
-```
-
-安装包产物位于：
-
-```
-src-tauri\target\release\bundle\nsis\   # NSIS 安装程序
-src-tauri\target\release\bundle\msi\    # MSI 安装包
-```
-
-> 首次编译会拉取并编译全部依赖，耗时几分钟，属正常现象。
 
 ### 前端说明
 
-前端为纯静态资源（`frontend/`），**无需任何构建**：`tauri.conf.json` 中 `frontendDist` 已指向 `../frontend`，页面通过 `withGlobalTauri` 直接调用 `window.__TAURI__`，由 `tauri-bridge.js` 桥接前后端。
+前端（`frontend/`）为纯静态资源，**无需任何构建步骤**；Electron 通过 `preload.js` 向页面注入 `window.markoraBridge`，把主进程的文件系统、对话框、窗口能力以 IPC 形式暴露给前端，页面逻辑与浏览器预览行为保持一致。
 
 ## 使用提示
 

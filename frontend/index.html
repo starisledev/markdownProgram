@@ -24,7 +24,7 @@
   <div class="menubar-left">
     <nav class="menu-h">
     <!-- 文件 -->
-    <div class="mitem" data-menu="file"><span class="m-cap">文件(F)</span>
+    <div class="mitem" data-menu="file"><span class="m-cap">文件</span>
       <div class="submenu">
         <div class="menu-item" data-act="new"><span>新建文档</span><kbd>Ctrl N</kbd></div>
         <div class="menu-item" data-act="open"><span>打开 Markdown…</span><kbd>Ctrl O</kbd></div>
@@ -41,6 +41,9 @@
         </div>
         <div id="recentList"></div>
         <div class="menu-sep"></div>
+        <div class="menu-item" data-act="rename"><span>重命名</span></div>
+        <div class="menu-item" data-act="delete"><span>删除文档</span></div>
+        <div class="menu-sep"></div>
         <div class="menu-item" data-act="save"><span>导出 Markdown</span><kbd>Ctrl S</kbd></div>
         <div class="menu-item" data-act="exportHtml"><span>导出 HTML…</span></div>
         <div class="menu-item" data-act="exportPdf"><span>打印 / 导出 PDF</span><kbd>Ctrl P</kbd></div>
@@ -49,7 +52,7 @@
       </div>
     </div>
     <!-- 编辑 -->
-    <div class="mitem" data-menu="edit"><span class="m-cap">编辑(E)</span>
+    <div class="mitem" data-menu="edit"><span class="m-cap">编辑</span>
       <div class="submenu">
         <div class="menu-item" data-act="undo"><span>撤销</span><kbd>Ctrl Z</kbd></div>
         <div class="menu-item" data-act="redo"><span>重做</span><kbd>Ctrl Y</kbd></div>
@@ -65,10 +68,11 @@
       </div>
     </div>
     <!-- 视图（含主题、缩放） -->
-    <div class="mitem" data-menu="view"><span class="m-cap">视图(V)</span>
+    <div class="mitem" data-menu="view"><span class="m-cap">视图</span>
       <div class="submenu">
         <div class="menu-item" data-act="outline"><span>大纲</span><kbd>Ctrl 2</kbd></div>
         <div class="menu-item" data-act="toggleExplorer"><span>文件树（工作区）</span><kbd>Ctrl 1</kbd></div>
+        <div class="menu-item" data-act="toggleToolbar"><span>格式工具栏</span></div>
         <div class="menu-sep"></div>
         <div class="menu-label">主题</div>
         <div class="menu-item" data-theme-name="light"><span>浅色</span></div>
@@ -84,7 +88,7 @@
       </div>
     </div>
     <!-- 格式（含段落、插入） -->
-    <div class="mitem" data-menu="format"><span class="m-cap">格式(O)</span>
+    <div class="mitem" data-menu="format"><span class="m-cap">格式</span>
       <div class="submenu">
         <div class="menu-label">标题</div>
         <div class="menu-item" data-act="h1"><span>一级标题</span></div>
@@ -114,7 +118,7 @@
       </div>
     </div>
     <!-- 帮助 -->
-    <div class="mitem" data-menu="help"><span class="m-cap">帮助(H)</span>
+    <div class="mitem" data-menu="help"><span class="m-cap">帮助</span>
       <div class="submenu">
         <div class="menu-item" data-act="help"><span>快捷键速查</span></div>
         <div class="menu-item" data-act="about"><span>关于砚屿</span></div>
@@ -127,6 +131,38 @@
     <span class="doc-saved" id="docSaved" hidden>已保存</span>
   </div>
 </header>
+
+<!-- 格式工具栏（默认折叠，菜单 → 视图 → 格式工具栏 可展开） -->
+<div class="toolbar" id="toolbar">
+  <div class="tb-inner">
+    <select id="tbBlock" class="tb-select" title="段落样式">
+      <option value="p">正文</option>
+      <option value="h1">标题 1</option>
+      <option value="h2">标题 2</option>
+      <option value="h3">标题 3</option>
+      <option value="h4">标题 4</option>
+      <option value="h5">标题 5</option>
+      <option value="h6">标题 6</option>
+    </select>
+    <span class="tb-sep"></span>
+    <button class="tool" data-cmd="bold" title="加粗（Ctrl+B）"><b class="ico-bold">B</b></button>
+    <button class="tool" data-cmd="italic" title="斜体（Ctrl+I）"><i class="ico-italic">I</i></button>
+    <button class="tool" data-cmd="strike" title="删除线（Ctrl+D）"><s>S</s></button>
+    <button class="tool" data-cmd="mark" title="高亮（Ctrl+U）">==</button>
+    <button class="tool" data-cmd="code" title="行内代码（Ctrl+E）">&lt;/&gt;</button>
+    <button class="tool" data-cmd="link" title="插入链接（Ctrl+K）" data-glyph="link">🔗</button>
+    <span class="tb-sep"></span>
+    <button class="tool" data-cmd="ul" title="无序列表">•≡</button>
+    <button class="tool" data-cmd="ol" title="有序列表">1…</button>
+    <button class="tool" data-cmd="task" title="任务列表">☑</button>
+    <button class="tool" data-cmd="quote" title="引用">❝</button>
+    <span class="tb-sep"></span>
+    <button class="tool" data-cmd="codeblock" title="代码块">&lt;/&gt;</button>
+    <button class="tool" data-cmd="table" title="表格">▦</button>
+    <button class="tool" data-cmd="hr" title="分割线">――</button>
+    <button class="tool" data-cmd="image" title="插入图片">🖼</button>
+  </div>
+</div>
 
 <!-- 主编辑区（单栏居中卡片） -->
 <main class="main" id="main">
@@ -170,8 +206,10 @@
   </aside>
 </main>
 
-<!-- 底部状态栏：右侧字数统计 -->
+<!-- 底部状态栏：文档名 / 光标位置 / 字数 -->
 <footer class="statusbar" id="statusbar">
+  <span class="st-item doc" id="stDoc" title=""></span>
+  <span class="st-item" id="stPos"></span>
   <span class="st-spacer"></span>
   <span class="st-item" id="stWords">0 词</span>
 </footer>
@@ -196,7 +234,6 @@
 <script src="js/to-markdown.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/store.js"></script>
-<script src="js/tauri-bridge.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
